@@ -13,6 +13,7 @@ class Graph {
     Graph(const Graph&) = delete;
     explicit Graph(WeightsMap&& weights_map)
         : weights_(std::move(weights_map)){};
+
     const std::unordered_map<Vertex, float>& get_neighbors(const Vertex& v) const {
         return this->weights_.at(v);
     }
