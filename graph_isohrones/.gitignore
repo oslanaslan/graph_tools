@@ -35,3 +35,9 @@ Testing
 *.exe
 *.out
 *.app
+
+# Pyhton
+venv
+
+# Graphml
+*.graphml

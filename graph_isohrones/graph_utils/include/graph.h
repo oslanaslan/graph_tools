@@ -11,6 +11,7 @@ class Graph {
    public:
     Graph() = default;
     Graph(const Graph&) = delete;
+    Graph(Graph&&) = default;
     explicit Graph(WeightsMap&& weights_map)
         : weights_(std::move(weights_map)){};
 
