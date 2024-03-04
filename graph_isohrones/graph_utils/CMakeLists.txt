@@ -27,7 +27,7 @@ FetchContent_Declare(
 # For Windows: Prevent overriding the parent project's compiler/linker settings
 FetchContent_MakeAvailable(pybind11)
 
-set(PYBIND11_PYTHON_VERSION "3.9.11")
+set(PYBIND11_PYTHON_VERSION "3.12.0")
 set(PYMODULE_NAME "${PROJECT_NAME}_pymodule")
 pybind11_add_module(${PYMODULE_NAME} ${SRC_FILES})
 

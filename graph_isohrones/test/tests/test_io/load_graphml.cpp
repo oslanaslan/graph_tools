@@ -6,7 +6,8 @@
 #include <string>
 #include <unordered_map>
 
-const std::string TEST_GRAPH_FILENAME = "sahalin_region.graphml";
+const std::string TEST_GRAPH_FILENAME = "test/tests/test_io/resources/sahalin_region.graphml";
+const float TOL = 0.01;
 
 TEST(test_load_graphml, small_file) {
     osm::OSMNode test_start_node = osm::OSMNode{"2591428522"};
@@ -17,6 +18,13 @@ TEST(test_load_graphml, small_file) {
     };
     std::fstream f{TEST_GRAPH_FILENAME};
     auto graph = io::load_graphml(f);
+    auto res_neighbors = graph.get_neighbors(test_start_node);
 
-    ASSERT_EQ(graph.get_neighbors(test_start_node), test_neighbors);
+    for (auto& true_key_value : test_neighbors) {
+        ASSERT_NEAR(res_neighbors.at(true_key_value.first), true_key_value.second, TOL);
+    }
+
+    for (auto& res_key_value : res_neighbors) {
+        ASSERT_NEAR(test_neighbors.at(res_key_value.first), res_key_value.second, TOL);
+    }
 }

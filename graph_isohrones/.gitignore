@@ -41,3 +41,7 @@ venv
 
 # Graphml
 *.graphml
+
+# Data files
+*.csv
+

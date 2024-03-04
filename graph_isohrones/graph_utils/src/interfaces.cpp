@@ -1,6 +1,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <algorithms/shortest_paths/dijkstra_algorithm.h>
+#include <geo_utils/geohash.h>
 #include <unordered_map>
 #include <string>
 #include <vector>
@@ -60,5 +61,9 @@ PYBIND11_MODULE(graph_utils, graph_utils) {
         "Return\n"
         "\tDict[str, float]\n"
         "\t\tList of dicts of all visited vertices and corresponding shortest paths for all given start vertices\n"
+    );
+    graph_utils.def(
+        "geohash_encode",
+        &geo_utils::geohash::encode
     );
 }
