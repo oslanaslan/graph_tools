@@ -1,6 +1,8 @@
+#include "algorithms/parallel.h"
 #include <gtest/gtest.h>
 #include <geo_utils/geohash.h>
 #include <sys/_types/_size_t.h>
+#include <utility>
 #include <vector>
 #include <fstream>
 
@@ -36,4 +38,30 @@ TEST(test_geohash, benchmark_encode_to_int) {
     for (std::size_t i = 0; i < benchmark_run_count; i++) {
         auto res_code = geo_utils::geohash::encode_to_int(test_lon, test_lat);
     }
+}
+
+TEST(test_geohash, benchmark_multithreaded_encode_to_int) {
+    int n_threads = 12;
+    double test_lat = 64.1835;
+    double test_lon = -51.7216;
+    std::pair<double, double> point{test_lon, test_lat};
+    const std::size_t benchmark_run_count = 100'000'000;
+    std::vector<std::pair<double, double>> points_vec(benchmark_run_count, point);
+    auto task = [](const std::pair<double, double> point, int thread_num) {
+        return geo_utils::geohash::encode_to_int(point.first, point.second);
+    };
+    auto res = graph::algorithms::run_in_threads(points_vec, n_threads, task);
+}
+
+TEST(test_geohash, benchmark_multithreaded_encode_to_string) {
+    int n_threads = 12;
+    double test_lat = 64.1835;
+    double test_lon = -51.7216;
+    std::pair<double, double> point{test_lon, test_lat};
+    const std::size_t benchmark_run_count = 100'000'000;
+    std::vector<std::pair<double, double>> points_vec(benchmark_run_count, point);
+    auto task = [](const std::pair<double, double> point, int thread_num) {
+        return geo_utils::geohash::encode(point.first, point.second);
+    };
+    auto res = graph::algorithms::run_in_threads(points_vec, n_threads, task);
 }

@@ -11,12 +11,14 @@ namespace graph {
 namespace algorithms {
 
 template<typename Data, typename Task>
-std::vector<typename std::result_of<Task(const Data&, int)>::type> run_in_threads(
+std::vector<typename std::invoke_result<Task, const Data&, int>::type> run_in_threads(
+// std::vector<typename std::result_of<Task(const Data&, int)>::type> run_in_threads(
     const std::vector<Data>& data,
     const int n_threads,
     Task&& task
 ) {
-    using ReturnType = typename std::result_of<Task(const Data&, int)>::type;
+    using ReturnType = typename std::invoke_result<Task, const Data&, int>::type;
+    // using ReturnType = typename std::result_of<Task(const Data&, int)>::type;
 
     auto iter = data.begin();
     int batch_size = data.size() / n_threads + 1;

@@ -14,7 +14,7 @@ include(FetchContent)
 
 FetchContent_Declare(
   graphmlpp
-  URL https://github.com/vitrevance/graphmlpp/archive/43ca8aaa3f9a0172028086ec8d475f198d883675.zip
+  URL https://github.com/vitrevance/graphmlpp/archive/7c298cbeb64e8fa4d062a668ba4e15149a547c50.zip
 )
 FetchContent_MakeAvailable(graphmlpp)
 
@@ -33,3 +33,11 @@ pybind11_add_module(${PYMODULE_NAME} ${SRC_FILES})
 
 target_include_directories(${PYMODULE_NAME} PUBLIC ${CMAKE_CURRENT_LIST_DIR}/include)
 target_link_libraries(${PYMODULE_NAME} PUBLIC graphmlpp)
+
+FetchContent_Declare(
+  geos
+  URL https://github.com/libgeos/geos/archive/0a8fc37a965bd29d61d14249ba22a2ae66fd58fa.zip
+)
+FetchContent_MakeAvailable(geos)
+
+target_link_libraries(${PROJECT_NAME} INTERFACE geos)
