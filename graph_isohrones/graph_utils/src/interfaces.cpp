@@ -1,3 +1,5 @@
+#include <cstddef>
+#include <numeric>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <algorithms/shortest_paths/dijkstra_algorithm.h>
@@ -5,7 +7,9 @@
 #include <unordered_map>
 #include <string>
 #include <vector>
-#include "graph.h"
+#include <graph.h>
+#include <iostream>
+#include <algorithms/parallel.h>
 
 using WeightsMap = std::unordered_map<std::string, std::unordered_map<std::string, float>>;
 using SingleSourceDijkstraReturn = std::unordered_map<std::string, float>;
@@ -25,6 +29,20 @@ MultiSourceDijkstraReturn multi_source_dijkstra(WeightsMap weights, std::vector<
         return dist <= dist_cutoff;
     };
     return graph::algorithms::multi_source_dijkstra(graph, start_vec, n_threads, cutoff_func);
+}
+
+std::vector<std::string> ghash_encode(std::vector<double>& lon_vec, std::vector<double>& lat_vec, int n_threads = 1) {
+    std::vector<size_t> point_idx_vec(lon_vec.size());
+    auto task = [&lat_vec, &lon_vec](size_t point_idx, int thread_num) {
+        double lon = lon_vec.at(point_idx);
+        double lat = lat_vec.at(point_idx);
+        return geo_utils::geohash::encode(lon, lat);
+    };
+
+    std::iota(point_idx_vec.begin(), point_idx_vec.end(), 0);
+    auto res = graph::algorithms::run_in_threads(point_idx_vec, n_threads, task);
+
+    return res;
 }
 
 PYBIND11_MODULE(graph_utils, graph_utils) {
@@ -63,7 +81,7 @@ PYBIND11_MODULE(graph_utils, graph_utils) {
         "\t\tList of dicts of all visited vertices and corresponding shortest paths for all given start vertices\n"
     );
     graph_utils.def(
-        "geohash_encode",
-        &geo_utils::geohash::encode
+        "ghash_encode",
+        &ghash_encode
     );
 }

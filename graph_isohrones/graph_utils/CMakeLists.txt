@@ -41,3 +41,13 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(geos)
 
 target_link_libraries(${PROJECT_NAME} INTERFACE geos)
+
+set(NUMPY_INCLUDE_DIR "" CACHE STRING "Numpy include dir")
+
+if (NOT ${NUMPY_INCLUDE_DIR} STREQUAL "")
+message(INFO "Numpy include path: ${NUMPY_INCLUDE_DIR}")
+  target_include_directories(${PROJECT_NAME} INTERFACE ${NUMPY_INCLUDE_DIR})
+  target_include_directories(${PYMODULE_NAME} PUBLIC ${NUMPY_INCLUDE_DIR})
+else()
+  message(FATAL_ERROR "Numpy not found")
+endif()
