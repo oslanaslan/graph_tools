@@ -9,14 +9,14 @@
 #include <geos/io/GeoJSONReader.h>
 #include <geos/io/WKTReader.h>
 #include <geos/io/WKTWriter.h>
-#include <malloc/_malloc.h>
 #include <memory>
 #include <numeric>
 #include <ostream>
 #include <string>
 #include <vector>
 #include <geo_utils/geohash.h>
-#include <fstream>
+#include <io/read_file.h>
+#include <algorithms/polygon.h>
 
 // size_t allocations = 0
 
@@ -52,13 +52,43 @@ TEST(test_geoms, test_polygons) {
     // std::cout << "Allocs: " << allocations << std::endl;
 
     // test_polygon->contains(test_point.get());
+    volatile int dummy = 0;
+
     for (size_t i = 0; i < test_count; i++) {
         // size_t old = alloc;
-        test_polygon->contains(test_point.get());
+        int r = test_polygon->contains(test_point.get());
+        dummy += r;
         // alloc = old;
     }
 
+    EXPECT_NE(dummy, 0);
+
     // std::cout << "Allocs: " << allocations << std::endl;
+}
+
+TEST(test_geoms, test_custom_polygons) {
+    using Point = graph::algorithms::Point2d;
+
+    // size_t test_count = 1'000'000;
+    constexpr size_t test_count = 1'000'000;
+
+    std::string test_polygon_wkt = "POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))";
+
+    std::vector<Point> points{{30, 10}, {40, 40}, {20, 40}, {10, 20}, {20, 10}};
+
+    graph::algorithms::Polygon test_polygon(std::move(points));
+    
+    Point test_point{20, 20};
+
+    volatile int dummy = 0;
+
+    for (size_t i = 0; i < test_count; i++) {
+        int r = test_polygon.contains(test_point);
+        dummy += r;
+        // test_point = Point{rand() * 0.5, rand() * 0.5};
+    }
+
+    std::cout << dummy << "/" << test_count << std::endl;
 }
 
 TEST(test_geoms, polygon_ghash_mapping) {
@@ -77,11 +107,7 @@ TEST(test_geoms, polygon_ghash_mapping) {
     GeometryFactory::Ptr geometry_factory = GeometryFactory::create();
 
     // Read file into string and parse geojson
-    std::fstream ifs{filename};
-    std::string content(
-        (std::istreambuf_iterator<char>(ifs)),
-        (std::istreambuf_iterator<char>())
-    );
+    std::string content = io::read_file(filename);
     auto geom = reader.read(content);
 
     auto bbox = geom->getEnvelopeInternal();
@@ -132,10 +158,10 @@ TEST(test_geoms, test_geojson_reader) {
 
     const std::string filename = "test/tests/test_geo_utils/resources/moscow_city_polygon.geojson";
 
+    
+
     // Read file into string
-    std::fstream ifs{filename};
-    std::string content((std::istreambuf_iterator<char>(ifs) ),
-                        (std::istreambuf_iterator<char>()    ));
+    const std::string content = io::read_file(filename);
 
     // Parse GeoJSON string into GeoJSON objects
 

@@ -2,7 +2,7 @@
 #include <cstdint>
 #include <gtest/gtest.h>
 #include <geo_utils/geohash.h>
-#include <sys/_types/_size_t.h>
+#include <cstdint>
 #include <utility>
 #include <vector>
 #include <fstream>

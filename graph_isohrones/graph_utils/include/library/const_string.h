@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <cstring>
+#include <cstdint>
 #include <nonstd/string_view.hpp>
 
 namespace lib {
