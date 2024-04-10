@@ -2,6 +2,7 @@
 build
 Testing
 .vscode
+.DS_Store
 
 # Prerequisites
 *.d
@@ -46,4 +47,8 @@ __pycache__
 
 # Data files
 *.csv
-
+*.json
+*.geojson
+*.graphml
+*.xlsx
+*.txt

@@ -4,6 +4,9 @@
 #include "geos/geom/Geometry.h"
 #include "geos/geom/GeometryFactory.h"
 #include "geos/geom/Point.h"
+#include "geos/geom/Polygon.h"
+#include <__chrono/duration.h>
+#include <chrono>
 #include <cstddef>
 #include <gtest/gtest.h>
 #include <geos/io/GeoJSONReader.h>
@@ -16,7 +19,7 @@
 #include <vector>
 #include <geo_utils/geohash.h>
 #include <io/read_file.h>
-#include <algorithms/polygon.h>
+#include <algorithms/light_polygon.h>
 
 // size_t allocations = 0
 
@@ -36,13 +39,18 @@ TEST(test_geoms, test_polygons) {
     using namespace geos::io;
 
     // size_t test_count = 1'000'000;
-    size_t test_count = 1'000'000;
-    std::string test_multipolygon_wkt = "MULTIPOLYGON (((40 40, 20 45, 45 30, 40 40)),((20 35, 10 30, 10 10, 30 5, 45 20, 20 35),(30 20, 20 15, 20 25, 30 20)))";
-    std::string test_polygon_wkt = "POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))";
+    size_t test_count = 10;
+    // Two polygons
+    // std::string test_geometry_wkt = "MULTIPOLYGON (((30 20, 45 40, 10 40, 30 20)),((15 5, 40 10, 10 20, 5 10, 15 5)))";
+    // Two polygons, one with hole
+    std::string test_geometry_wkt = "MULTIPOLYGON (((40 40, 20 45, 45 30, 40 40)),((20 35, 10 30, 10 10, 30 5, 45 20, 20 35),(30 20, 20 15, 20 25, 30 20)))";
+    // Simple polygon
+    // std::string test_geometry_wkt = "POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))";
+
     GeometryFactory::Ptr geometry_factory = GeometryFactory::create();
     WKTReader wkt_reader(*geometry_factory);
     WKTWriter wkt_writer;
-    std::unique_ptr<Geometry> test_polygon(wkt_reader.read(test_polygon_wkt));
+    std::unique_ptr<Geometry> test_polygon(wkt_reader.read(test_geometry_wkt));
     std::unique_ptr<Point> test_point = geometry_factory->createPoint(Coordinate(20, 20));
 
     // std::cout << wkt_writer.write(test_polygon.get()) << std::endl;
@@ -52,55 +60,93 @@ TEST(test_geoms, test_polygons) {
     // std::cout << "Allocs: " << allocations << std::endl;
 
     // test_polygon->contains(test_point.get());
-    volatile int dummy = 0;
+    // volatile int dummy = 0;
 
-    for (size_t i = 0; i < test_count; i++) {
-        // size_t old = alloc;
-        int r = test_polygon->contains(test_point.get());
-        dummy += r;
-        // alloc = old;
+    int geoms_count = test_polygon->getNumGeometries();
+    std::cout << test_polygon->getGeometryType() << std::endl;
+    std::cout << geoms_count << std::endl;
+    std::cout << "Is Polygon " << test_polygon->isPolygonal() << std::endl;
+
+    for (size_t geom_i = 0; geom_i < geoms_count; geom_i++) {
+        auto cur_geom = (Polygon *)test_polygon->getGeometryN(geom_i);
+        size_t holes_count = cur_geom->getNumInteriorRing();
+        
+        std::cout << cur_geom->getGeometryType() << std::endl;
+        std::cout << "Int ring count: " << holes_count << std::endl;
+        std::cout << "Is Polygon cur_geom " << cur_geom->isPolygonal() << std::endl;
+
+        // auto coords_seq = cur_geom->getExteriorRing()->getCoordinates();
+        std::vector<CoordinateXY> coords_vec;
+        auto line_ring = cur_geom->getExteriorRing();
+        line_ring->getCoordinates()->toVector(coords_vec);
+        std::cout << coords_vec[0].x << std::endl;
+        
+        for (size_t hole_i = 0; hole_i < holes_count; hole_i++) {
+            std::vector<CoordinateXY> hole_coords_vec;
+            auto internal_ring = cur_geom->getInteriorRingN(hole_i);
+            std::cout << "Is Polygon line ring " << internal_ring->isPolygonal() << std::endl;
+
+        }
     }
 
-    EXPECT_NE(dummy, 0);
+    // std::cout << test_polygon->getBoundary()->getNumGeometries() << std::endl;
+    // auto internal_point = test_polygon->getInteriorPoint();
+    // std::cout << test_polygon->contains(internal_point.get()) << std::endl;
+
+    // std::cout << test_polygon->getNumInteriorRing() << std::endl;
+
+    // for (size_t i = 0; i < test_count; i++) {
+    //     // size_t old = alloc;
+    //     int r = test_polygon->contains(test_point.get());
+    //     dummy = dummy + r;
+    //     // alloc = old;
+    // }
+
+    // EXPECT_NE(dummy, 0);
 
     // std::cout << "Allocs: " << allocations << std::endl;
 }
 
-TEST(test_geoms, test_custom_polygons) {
-    using Point = graph::algorithms::Point2d;
+TEST(test_geoms, test_light_multipolygon) {
+    using namespace geos::io;
+    using namespace geos::geom;
 
-    // size_t test_count = 1'000'000;
-    constexpr size_t test_count = 1'000'000;
+    std::string test_geometry_wkt = "MULTIPOLYGON (((40 40, 20 45, 45 30, 40 40)),((20 35, 10 30, 10 10, 30 5, 45 20, 20 35),(30 20, 20 15, 20 25, 30 20)))";
+    std::vector<graph::algorithms::Point2d> test_points_vec = {
+        {25, 20}, // in hole
+        {35, 20}, // in bigger polygon
+        {35, 40}, // in smaller polygon
+        {20, 40} // outside
+    };
+    std::vector<bool> true_res_vec = {false, true, true, false};
+    GeometryFactory::Ptr geometry_factory = GeometryFactory::create();
+    WKTReader wkt_reader(*geometry_factory);
+    WKTWriter wkt_writer;
+    std::unique_ptr<Geometry> test_polygon(wkt_reader.read(test_geometry_wkt));
 
-    std::string test_polygon_wkt = "POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))";
-
-    std::vector<Point> points{{30, 10}, {40, 40}, {20, 40}, {10, 20}, {20, 10}};
-
-    graph::algorithms::Polygon test_polygon(std::move(points));
+    // Test GEOS Geometry to LightPolygon conversion
+    graph::algorithms::LightMultiPolygon light_multipolygon(test_polygon.get());
     
-    Point test_point{20, 20};
+    for (size_t i = 0; i < test_points_vec.size(); i++) {
+        auto test_point = test_points_vec[i];
+        bool true_res = true_res_vec[i];
+        bool res = light_multipolygon.contains(test_point);
 
-    volatile int dummy = 0;
-
-    for (size_t i = 0; i < test_count; i++) {
-        int r = test_polygon.contains(test_point);
-        dummy += r;
-        // test_point = Point{rand() * 0.5, rand() * 0.5};
+        EXPECT_EQ(true_res, res);
     }
-
-    std::cout << dummy << "/" << test_count << std::endl;
 }
 
-TEST(test_geoms, polygon_ghash_mapping) {
-    using namespace geos::geom;
+TEST(test_geoms, test_benchmark_light_multipolygon) {
     using namespace geos::io;
+    using namespace geos::geom;
+    using LightMultiPolygon = graph::algorithms::LightMultiPolygon;
+    using LightPolygon = graph::algorithms::LightPolygon;
+    using Point2d = graph::algorithms::Point2d;
 
-    // step = (0.0009, 0.0016)
-    // step_g = 4000000
-    int n_threads = 12;
     const std::string filename = "test/tests/test_geo_utils/resources/dolgoprudniy_city_polygon.geojson";
     constexpr double lon_step = 0.0016 / 2;
     constexpr double lat_step = 0.0009 / 2;
+    size_t test_run_counts = 100'000;
 
     GeoJSONReader reader;
     WKTWriter writer;
@@ -108,45 +154,77 @@ TEST(test_geoms, polygon_ghash_mapping) {
 
     // Read file into string and parse geojson
     std::string content = io::read_file(filename);
-    auto geom = reader.read(content);
+    auto geom_collection = reader.read(content);
+    auto geos_polygon = dynamic_cast<const Polygon*>(geom_collection->getGeometryN(0));
+    LightPolygon light_polygon(geos_polygon);
+    
+    volatile size_t dummy = 0;
 
-    auto bbox = geom->getEnvelopeInternal();
-    double min_lon = bbox->getMinX();
-    double max_lon = bbox->getMaxX();
-    double min_lat = bbox->getMinY();
-    double max_lat = bbox->getMaxY();
-    std::vector<double> lon_vec;
-    std::vector<double> lat_vec;
-    size_t lat_cnt = (max_lat - min_lat) / lat_step;
-    size_t lon_cnt = (max_lon - min_lon) / lon_step;
+    // LightPolygon
+    auto start_time = std::chrono::steady_clock::now();
 
-    std::cout << lon_cnt << " " << lat_cnt << " " << lon_cnt * lat_cnt << std::endl;
-    std::cout << min_lon << " " << max_lon << " " << min_lat << " " << max_lat << std::endl;
-
-    std::vector<size_t> point_ids_vec(lon_cnt * lat_cnt);
-    std::iota(point_ids_vec.begin(), point_ids_vec.end(), 0);
-
-    for (double lon = min_lon; lon <= max_lon; lon += lon_step) {
-        for (double lat = min_lat; lat <= max_lat; lat += lat_step) {
-            lon_vec.push_back(lon);
-            lat_vec.push_back(lat);
-        }
+    for (size_t i = 0; i < test_run_counts; i++) {
+        Point2d test_point{37.514230, 55.933302};
+        auto res = light_polygon.contains(test_point);
+        dummy += res;
     }
 
-    auto filter_points_task = [&lon_vec, &lat_vec, &geom, &geometry_factory](size_t point_idx, int thread_num) {
-        double lon = lon_vec[point_idx];
-        double lat = lat_vec[point_idx];
-        auto point = geometry_factory->createPoint(Coordinate(lon, lat));
-        std::string res = "";
+    auto light_polygon_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_time).count();
+    std::cout << "LightPolygon: " << light_polygon_time << std::endl;
 
-        if (geom->contains(point.get())) {
-            res = geo_utils::geohash::encode(lon, lat);
-        }
+    // Geos Polygon
+    start_time = std::chrono::steady_clock::now();
 
-        return res;
-    };
-    std::cout << "Start threads" << std::endl;
-    auto geohash_vec = graph::algorithms::run_in_threads(point_ids_vec, n_threads, filter_points_task);
+
+    for (size_t i = 0; i < test_run_counts; i++) {
+        auto test_geos_point = geometry_factory->createPoint(Coordinate(37.514230, 55.933302));
+        auto res = geos_polygon->contains(test_geos_point.get());
+        dummy += res;
+    }
+
+    auto geos_polygon_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_time).count();
+
+    std::cout << "GEOS Polygon: " << geos_polygon_time << std::endl;
+
+    // Geos GeometryCollection
+    start_time = std::chrono::steady_clock::now();
+
+    for (size_t i = 0; i < test_run_counts; i++) {
+        auto test_geos_point = geometry_factory->createPoint(Coordinate(37.514230, 55.933302));
+        auto res = geom_collection->contains(test_geos_point.get());
+        dummy += res;
+    }
+
+    auto geos_geometry_collection_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_time).count();
+
+    std::cout << "GEOS GeometryCollection: " << geos_geometry_collection_time << std::endl;
+}
+
+TEST(test_geoms, test_custom_polygons) {
+    using LightPoint = graph::algorithms::Point2d;
+
+    // size_t test_count = 1'000'000;
+    constexpr size_t test_count = 1'000'000;
+
+    std::string test_polygon_wkt = "POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))";
+
+    std::vector<LightPoint> points{{30, 10}, {40, 40}, {20, 40}, {10, 20}};
+
+    graph::algorithms::LightSimplePolygon test_polygon(std::move(points));
+    
+    LightPoint test_point{20, 20};
+
+    // std::cout << test_polygon.points() << std::endl();
+
+    volatile int dummy = 0;
+
+    for (size_t i = 0; i < test_count; i++) {
+        int r = test_polygon.contains(test_point);
+        dummy = dummy + r;
+        // test_point = Point{rand() * 0.5, rand() * 0.5};
+    }
+
+    std::cout << dummy << "/" << test_count << std::endl;
 }
 
 

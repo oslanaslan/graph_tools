@@ -1,11 +1,21 @@
 #pragma once
 
+#include "geos/geom/LinearRing.h"
+#include "geos/geom/Point.h"
+#include "geos/geom/Polygon.h"
 #include <algorithm>
+#include <cstddef>
 #include <limits>
+#include <memory>
+#include <stdexcept>
 #include <vector>
+#include <geos/geom/Geometry.h>
 
 namespace graph {
 namespace algorithms {
+
+using namespace geos::geom;
+using namespace geos::io;
 
 struct Point2d {
   double x;
@@ -33,11 +43,29 @@ struct BoundingBox {
   }
 };
 
-struct Polygon {
+struct LightSimplePolygon {
   std::vector<Point2d> points;
   BoundingBox bbox;
 
-  Polygon(std::vector<Point2d> verices) : points(std::move(verices)) {
+  LightSimplePolygon() = default;
+
+  LightSimplePolygon(std::vector<Point2d> verices) : points(std::move(verices)) {
+    calcBoundingBox();
+  }
+
+  LightSimplePolygon(const LinearRing* geos_linear_ring) {
+    if (!geos_linear_ring->isRing() || !geos_linear_ring->isClosed()) {
+      std::runtime_error("geos_linear_ring must be closed LinearRing");
+    }
+
+    std::vector<CoordinateXY> coords_vec;
+    geos_linear_ring->getCoordinates()->toVector(coords_vec);
+    this->points.resize(coords_vec.size());
+
+    for (size_t i = 0; i < coords_vec.size(); i++) {
+      auto geos_point = coords_vec[i];
+      this->points[i] = Point2d{geos_point.x, geos_point.y};
+    }
     calcBoundingBox();
   }
 
@@ -48,6 +76,10 @@ struct Polygon {
     } else {
       return true;
     }
+  }
+
+  bool contains(double lon, double lat) {
+    return this->contains(Point2d{lon, lat});
   }
 
   bool contains(Point2d point) {
@@ -122,6 +154,77 @@ private:
         bbox.ymax = point.y;
       }
     }
+  }
+};
+
+struct LightPolygon {
+  LightSimplePolygon external_polygon;
+  std::vector<LightSimplePolygon> internal_polygons_vec;
+
+  LightPolygon() = default;
+
+  LightPolygon(const Polygon* geos_polygon) {
+    if (!geos_polygon->isPolygonal() || geos_polygon->getGeometryType() != "Polygon") {
+      std::runtime_error("Passed geos_polygon must be type of 'Polygon'");
+    }
+
+    size_t holes_count = geos_polygon->getNumInteriorRing();
+    std::vector<CoordinateXY> coords_vec;
+    auto exterior_ring = geos_polygon->getExteriorRing();
+    this->external_polygon = LightSimplePolygon(exterior_ring);
+
+    for (size_t hole_i = 0; hole_i < holes_count; hole_i++) {
+      auto internal_ring = geos_polygon->getInteriorRingN(hole_i);
+      this->internal_polygons_vec.push_back(LightSimplePolygon(internal_ring));
+    }
+  }
+
+  bool contains(double lon, double lat) {
+    return this->contains(Point2d{lon, lat});
+  }
+
+  bool contains(Point2d point) {
+    for (auto hole : internal_polygons_vec) {
+      if (hole.contains(point)) {
+        return false;
+      }
+    }
+
+    return external_polygon.contains(point);
+  }
+};
+
+struct LightMultiPolygon {
+  std::vector<LightPolygon> polygons_vec;
+
+  LightMultiPolygon() = default;
+
+  LightMultiPolygon(const Geometry* geos_geometry) {
+    if (!geos_geometry->isPolygonal()) {
+      std::runtime_error("Passed geos_geometry must be type of 'Polygon' or 'MultiPolygon'");
+    }
+
+    size_t polygons_count = geos_geometry->getNumGeometries();
+    polygons_vec.resize(polygons_count);
+
+    for (size_t poly_i = 0; poly_i < polygons_count; poly_i++) {
+      const Polygon* geos_polygon = (const Polygon*)geos_geometry->getGeometryN(poly_i);
+      polygons_vec[poly_i] = LightPolygon(geos_polygon);
+    }
+  }
+
+  bool contains(double lon, double lat) {
+    return this->contains(Point2d{lon, lat});
+  }
+
+  bool contains(Point2d point) {
+    for (auto polygon : polygons_vec) {
+      if (polygon.contains(point)) {
+        return true;
+      }
+    }
+
+    return false;
   }
 };
 
