@@ -6,16 +6,20 @@
 #include "geos/geom/Point.h"
 #include "geos/geom/Polygon.h"
 #include <__chrono/duration.h>
+#include <algorithm>
 #include <chrono>
 #include <cstddef>
+#include <cstdlib>
 #include <fstream>
 #include <gtest/gtest.h>
 #include <geos/io/GeoJSONReader.h>
 #include <geos/io/WKTReader.h>
 #include <geos/io/WKTWriter.h>
+#include <iterator>
 #include <memory>
 #include <numeric>
 #include <ostream>
+#include <stdexcept>
 #include <string>
 #include <vector>
 #include <geo_utils/geohash.h>
@@ -152,6 +156,9 @@ TEST(test_polygon_geohashing, moscow_geos_polygon) {
     std::cout << "Start threads" << std::endl;
     auto geohash_vec = graph::algorithms::run_in_threads(point_ids_vec, n_threads, filter_points_task);
 
+    auto end_unique_iter = std::unique(geohash_vec.begin(), geohash_vec.end());
+    geohash_vec.resize(std::distance(geohash_vec.begin(), end_unique_iter));
+
     std::cout << geohash_vec.size() << std::endl;
 
     auto fout  = std::ofstream("test/tests/test_geohashing/resources/moscow_geohashes_geos.txt");
@@ -211,7 +218,7 @@ TEST(test_polygon_geohashing, moscow_light_polygon) {
 
     LightMultiPolygon light_multipolygon(geos_polygon);
 
-    auto filter_points_task = [&lon_vec, &lat_vec, &light_multipolygon, &geometry_factory](size_t point_idx, int thread_num) {
+    auto filter_points_task = [&](size_t point_idx, int thread_num) {
         double lon = lon_vec[point_idx];
         double lat = lat_vec[point_idx];
         std::string res = "";
@@ -224,6 +231,9 @@ TEST(test_polygon_geohashing, moscow_light_polygon) {
     };
     std::cout << "Start threads" << std::endl;
     auto geohash_vec = graph::algorithms::run_in_threads(point_ids_vec, n_threads, filter_points_task);
+
+    auto end_unique_iter = std::unique(geohash_vec.begin(), geohash_vec.end());
+    geohash_vec.resize(std::distance(geohash_vec.begin(), end_unique_iter));
 
     std::cout << geohash_vec.size() << std::endl;
 
